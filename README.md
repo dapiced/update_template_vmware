@@ -42,7 +42,7 @@
  
 > name: update rpm
 
-> name: De>registration of the server at Redhat Satellite
+> name: De-registration of the server at Redhat Satellite
   
 > name: Removing subscriptions from the temporary vm
 
