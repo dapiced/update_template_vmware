@@ -1,0 +1,230 @@
+---
+  
+- name: Get template vmware_vm_facts
+  vmware_vm_facts:
+       hostname: "{{ update_template_vmware__vcenter }}"
+       username: "{{ vcenter_ad_rw.username }}"
+       password: "{{ vcenter_ad_rw.password }}"
+       vm_type: template
+       validate_certs: no 
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"     
+  register: template_facts
+  ignore_errors: yes  
+  tags: get_vm_facts       
+
+- name: Increment by 1 the next no. of the current template in VMware for rhel
+  set_fact:
+    update_template_vmware__templateCourant: "{{ item.key }}"
+    update_template_vmware__ProchainTemplateCourant: "{{ update_template_vmware__name }}{{ item.key | replace('{{ update_template_vmware__name }}', '') | int + 1 }}"
+  when: 
+    - item.key is search("'{{ update_template_vmware__name }}'")
+  loop: "{{ template_facts.virtual_machines | dict2items | sort }}"
+  
+- name: Clone the current template as a temporary VM
+  vmware_guest:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    validate_certs: False
+    name: "{{ update_template_vmware__vm_temp }}"
+    template: "{{ update_template_vmware__templateCourant }}"
+    networks: 
+    - name: "{{ update_template_vmware__vm_network_vm }}"
+    datacenter: "{{ update_template_vmware__cluster }}"
+    folder: "{{ update_template_vmware__folder }}"
+    state: "{{ update_template_vmware__vm_state }}"
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  tags: clone_template_to_vm  
+
+- name: Pause the time the clone complete     
+  pause:
+    seconds: 60
+    
+- name: Assign an IP to the temporary VM
+  vmware_vm_shell:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    datacenter: "{{ update_template_vmware__cluster }}"
+    folder: "{{ update_template_vmware__folder }}"
+    vm_id: "{{ update_template_vmware__vm_temp }}"
+    vm_username: "{{ vm_template.username }}"
+    vm_password: "{{ vm_template.password }}"
+    vm_shell: /usr/bin/echo
+    vm_shell_args: -e "NAME=ens192\nGATEWAY=10.75.65.1\nDNS1=XX.XX.XX.XX\nDNS2=XX.XX.XX.XX\nDOMAIN=\"XXX.XXX.XXX.XXX\"\nDEVICE=ens192\nONBOOT=yes\nUSERCTL=no\nBOOTPROTO=static\nNETMASK=255.255.255.0\nIPADDR={{ update_template_vmware__vm_ip }}\nPEERDNS=no" > /etc/sysconfig/network-scripts/ifcfg-ens192
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"
+  tags: assign_ip
+
+- name: Restart the network of the temporary VM
+  vmware_vm_shell:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    datacenter: "{{ update_template_vmware__cluster }}"
+    folder: "{{ update_template_vmware__folder }}"
+    vm_id: "{{ update_template_vmware__vm_temp }}"
+    vm_username: "{{ vm_template.username }}"
+    vm_password: "{{ vm_template.password }}"
+    vm_shell: /usr/bin/systemctl
+    vm_shell_args: restart network
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  tags: restart_network  
+ 
+- name: Installation katello-ca-consumer-latest.noarch.rpm from {{ sat6_fqdn }}
+  yum:
+    name: http://{{ sat6_fqdn }}/pub/katello-ca-consumer-latest.noarch.rpm
+    state: present
+
+- name: Subcribe to Satellite image vra
+  redhat_subscription:
+    state: present
+    activationkey: "XXXXXXXX"
+    force_register: yes
+    org_id: "{{ org }}"
+    rhsm_baseurl: https://xxxxxxxxxx/pulp/repos
+  when:
+    - 'ansible_hostname is match("vm.*")' 
+  register: 'reg_return'  
+
+- name: Installation katello-agent
+  yum:
+    name: katello-agent
+    state: latest
+  when: reg_return is success
+  notify:
+    - Start katello-agent
+    - Enable katello-agent
+
+- name: update rpm
+  yum: 
+      name:     "{{ update__name }}"
+      state:    "{{ update__state }}"
+      security: "{{ update__security_only }} "
+  notify:
+         - Reboot...
+
+- name: De-registration of the server at Redhat Satellite
+  redhat_subscription:
+    state: absent
+  delegate_to: "{{ update_template_vmware__vm_ip }}"
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"
+    ansible_hostname: vm_temp_update_vra
+  tags: update_unregister
+  
+- name: Removing subscriptions from the temporary vm
+  shell: subscription-manager remove --all
+  delegate_to: "{{ update_template_vmware__vm_ip }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python
+    ansible_hostname: vm_temp_update_vra
+  tags: update_remove_all    
+
+- name: Removing the Satellite Temporary vm
+  uri:
+    url:              "{{ update_template_vmware__sat_url }}{{ update_template_vmware__vm_temp }}"
+    method:           DELETE
+    user:             "{{ med_satellite.username }}"
+    password:         "{{ med_satellite.password }}"
+    force_basic_auth: yes
+  delegate_to: lpzexawges701
+  vars:
+    ansible_python_interpreter: /usr/bin/python
+  tags: update_med  
+  
+- name: Removing the IP Temporary vm
+  vmware_vm_shell:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    datacenter: "{{ update_template_vmware__cluster }}"
+    folder: "{{ update_template_vmware__folder }}"
+    vm_id: "{{ update_template_vmware__vm_temp }}"
+    vm_username: "{{ vm_template.username }}"
+    vm_password: "{{ vm_template.password }}"
+    vm_shell: /usr/bin/echo
+    vm_shell_args: -e "TYPE=Ethernet\nPROXY_METHOD=none\nBROWSER_ONLY=no\nBOOTPROTO=none\nDEFROUTE=yes\nIPV4_FAILURE_FATAL=no\nNAME=ens192\nDEVICE=ens192\nONBOOT=yes\nIPADDR=\nPREFIX=\nGATEWAY=\nDNS1=" > /etc/sysconfig/network-scripts/ifcfg-ens192
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"
+  tags: remove_ip
+
+- name: Reset the initial network
+  vmware_guest:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    validate_certs: False
+    name: "{{ update_template_vmware__vm_temp }}"
+    networks: 
+    - name: "{{ update_template_vmware__vm_network_template }}"
+    datacenter: "{{ update_template_vmware__cluster }}"
+    folder: "{{ update_template_vmware__folder }}"
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  tags: initial_network  
+  
+- name: Shutdown the temporary VM
+  vmware_guest_powerstate:
+    hostname: "{{ update_template_vmware__vcenter }}"
+    username: "{{ vcenter_ad_rw.username }}"
+    password: "{{ vcenter_ad_rw.password }}"
+    validate_certs: no
+    folder: "{{ update_template_vmware__folder }}"
+    name: "{{ update_template_vmware__vm_temp }}"
+    state: powered-off
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  tags: eteindre_vm
+  register:  poweredoff
+
+- name: Get VM name uuid to rename the VM
+  vmware_guest_facts:
+   hostname: "{{ update_template_vmware__vcenter }}"
+   username: "{{ vcenter_ad_rw.username }}"
+   password: "{{ vcenter_ad_rw.password }}"
+   validate_certs: False
+   datacenter: "{{ update_template_vmware__cluster }}"
+   folder: "{{ update_template_vmware__folder }}"
+   name: "{{ update_template_vmware__vm_temp }}"
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  register: vm_facts
+  tags: rename_vm
+
+- name: Rename the VM to the next current template
+  vmware_guest:
+   hostname: "{{ update_template_vmware__vcenter }}"
+   username: "{{ vcenter_ad_rw.username }}"
+   password: "{{ vcenter_ad_rw.password }}"
+   validate_certs: False
+   datacenter: "{{ update_template_vmware__cluster }}"
+   uuid: "{{ vm_facts.instance.hw_product_uuid }}"
+   name: "{{ update_template_vmware__ProchainTemplateCourant }}"
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"     
+  tags: rename_vm
+
+- name: Convert VM to template in increment no. template
+  vmware_guest:
+   validate_certs: False
+   hostname: "{{ update_template_vmware__vcenter }}"
+   username: "{{ vcenter_ad_rw.username }}"
+   password: "{{ vcenter_ad_rw.password }}"
+   datacenter: "{{ update_template_vmware__cluster }}"
+   folder: "{{ update_template_vmware__folder }}"
+   name: "{{ update_template_vmware__ProchainTemplateCourant }}"
+   state: present
+   is_template: True
+  vars:
+    ansible_python_interpreter: "{{ update_template_vmware__python_interpreter }}"  
+  tags: vm_to_template
+  
+- name: ======================Playbook Finish!==============================
+  debug:
+    msg: "Playbook Done! The new current template is now: {{ update_template_vmware__ProchainTemplateCourant }}"   
+
+...

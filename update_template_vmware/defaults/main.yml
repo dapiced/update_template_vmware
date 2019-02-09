@@ -1,0 +1,22 @@
+---
+
+update_template_vmware__vcenter: vcenter
+update_template_vmware__vm_temp: vmtemp
+update_template_vmware__cluster: cluster 
+update_template_vmware__folder: "VM Templates"
+update_template_vmware__vm_state: poweredon
+update_template_vmware__vm_ip: ip
+update_template_vmware__vm_network_template: network_for_template
+update_template_vmware__vm_network_vm: network_for_vm
+update_template_vmware__sat_url: redhat_satellite_url
+update_template_vmware__python_interpreter: path_python
+update_template_vmware__name: rhel
+update__security_only: no   # yes/no
+update__reboot: true # true/false
+update__name: '*'                
+update__state: latest      
+sat6_fqdn: xxxxxxxx
+cap6_fqdn: xxxxxxxx
+org: xxxxxxxx    
+
+... 

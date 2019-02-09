@@ -1,0 +1,17 @@
+---
+    - name: reboot...
+      reboot:
+        pre_reboot_delay: 1
+      when: update__reboot   
+
+# handlers file for fe_satellite6_register
+    - name: Start katello-agent
+      service:
+        name: goferd
+        state: started
+    - name: Enable katello-agent
+      service:
+        name: goferd
+        enabled: yes
+
+

@@ -1,0 +1,15 @@
+---
+
+- hosts: all
+  gather_facts: no
+
+  pre_tasks:
+    - name: Include vaultXXX.yml file
+      include_vars:
+        dir: group_vars
+        files_matching: vaultXXX.yml
+      no_log: True
+  roles:
+    - update_template_vmware
+
+...
