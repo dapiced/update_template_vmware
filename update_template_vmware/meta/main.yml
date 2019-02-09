@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: dapiced
+  description: An Ansible role that upgrade vmware template automaticly (via yum method)
+  license: Free
+  min_ansible_version: 2.7
+  platforms:
+  - name: EL
+    versions:
+    - all
+  galaxy_tags:
+    - yum
