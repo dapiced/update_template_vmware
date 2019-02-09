@@ -226,5 +226,4 @@
 - name: ======================Playbook Finish!==============================
   debug:
     msg: "Playbook Done! The new current template is now: {{ update_template_vmware__ProchainTemplateCourant }}"   
-
 ...
