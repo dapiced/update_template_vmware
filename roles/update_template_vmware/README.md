@@ -23,9 +23,7 @@
 # flow of the playbook
 
 > name: Get template vmware_vm_facts
-
 > name: Increment by 1 the next no. of the current template in VMware for rhel
-  
 > name: Clone the current template as a temporary VM
 
 > name: Pause the time the clone complete     
