@@ -22,40 +22,23 @@
 
 # flow of the playbook
 
-> name: Get template vmware_vm_facts
-> name: Increment by 1 the next no. of the current template in VMware for rhel
-> name: Clone the current template as a temporary VM
-
-> name: Pause the time the clone complete     
- 
-> name: Assign an IP to the temporary VM
-
-> name: Restart the network of the temporary VM
- 
-> name: Installation katello>ca>consumer>latest.noarch.rpm from {{ sat6_fqdn }}
- 
-> name: Subcribe to Satellite image vra
-
-> name: Installation katello-agent
- 
-> name: update rpm
-
-> name: De>registration of the server at Redhat Satellite
-  
-> name: Removing subscriptions from the temporary vm
-
-> name: Removing the Satellite Temporary vm
- 
-> name: Removing the IP Temporary vm
-
-> name: Reset the initial network
-  
-> name: Shutdown the temporary VM
-
-> name: Get VM name uuid to rename the VM
-
-> name: Rename the VM to the next current template
-
-> name: Convert VM to template in increment no. template
- 
-> name: Playbook Done! The new current template is now:XXXX
+name: Get template vmware_vm_facts
+name: Increment by 1 the next no. of the current template in VMware for rhel
+name: Clone the current template as a temporary VM
+name: Pause the time the clone complete     
+name: Assign an IP to the temporary VM
+name: Restart the network of the temporary VM
+name: Installation katello>ca>consumer>latest.noarch.rpm from {{ sat6_fqdn }}
+name: Subcribe to Satellite image vra
+name: Installation katello-agent
+name: update rpm
+name: De>registration of the server at Redhat Satellite
+name: Removing subscriptions from the temporary vm
+name: Removing the Satellite Temporary vm
+name: Removing the IP Temporary vm
+name: Reset the initial network
+name: Shutdown the temporary VM
+name: Get VM name uuid to rename the VM
+name: Rename the VM to the next current template
+name: Convert VM to template in increment no. template
+name: Playbook Done! The new current template is now:XXXX
